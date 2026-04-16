@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 packages = [
-	{include = "buildComputer", from="src"}
+	{include = "buildcomputer", from="src"}
 ]
 
 [build-system]
