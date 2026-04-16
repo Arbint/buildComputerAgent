@@ -1,0 +1,25 @@
+[project]
+name = "buildcomputer"
+version = "0.1.0"
+description = "using ai the help build a computer"
+authors = [
+    {name = "JT"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic (>=0.95.0,<0.96.0)"
+]
+
+packages = [
+	{include = "buildComputer", from="src"}
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+buildComputer = "buildComputer.app:main"
