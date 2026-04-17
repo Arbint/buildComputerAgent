@@ -1,6 +1,6 @@
 from anthropic import Anthropic
-from buildComputer.utilities import GetAPIKey
-from buildComputer.tools import BuildComputerTools
+from buildcomputer.utilities import GetAPIKey
+from buildcomputer.tools import BuildComputerTools
 import json
 
 
