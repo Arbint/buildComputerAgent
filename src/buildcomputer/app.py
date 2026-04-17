@@ -23,7 +23,7 @@ def PrintContextWindow(system, messages):
             print(f"{GREY_BG}[{role}]: {content}{RESET}")
         elif isinstance(content, list):
             hasText = any(not isinstance(block, dict) and block.type=="text" for block in content)
-            if not hasText: # TODO: what is the point of this?
+            if not hasText: 
                 print(f"{GREY_BG}[{role}]:{RESET}")
             for block in content:
                 if isinstance(block, dict):
