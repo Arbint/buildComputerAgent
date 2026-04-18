@@ -67,9 +67,6 @@ class MainUnitAgent(Agent):
             },
         ]
 
-    def CallTool(self, toolName, **toolInputs):
-        method = getattr(self, toolName)
-        return method(**toolInputs)
 
     def GetAvailableGPUs(self):
         return {

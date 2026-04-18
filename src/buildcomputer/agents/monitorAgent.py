@@ -58,9 +58,6 @@ class MonitorAgent(Agent):
             }
         ]
 
-    def CallTool(self, toolName, **toolInputs):
-        method = getattr(self, toolName)
-        return method(**toolInputs)
 
     def GetAvailableMonitors(self, resolution=None, use_case=None, priceMax=None):
         monitors = {

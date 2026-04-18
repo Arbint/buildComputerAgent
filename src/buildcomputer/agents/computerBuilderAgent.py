@@ -80,9 +80,6 @@ class ComputerBuilderAgent(Agent):
             }
         ]
 
-    def CallTool(self, toolName, **toolInputs):
-        method = getattr(self, toolName)
-        return method(**toolInputs)
 
     def GetAvailableMice(self, wireless=None, use_case=None, priceMax=None):
         mice = {

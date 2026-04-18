@@ -65,8 +65,6 @@ class Agent:
         return finalResponse
             
 
-
-
     def ConfigureInput(self, **inputs):
         pass
 
