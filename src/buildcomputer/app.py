@@ -3,6 +3,7 @@ def DIYComputer():
     agent = ComputerBuilderAgent()
     maxIter = 10
     iter = 0
+    agent.ProcessNewUserInput("hi")
     while iter < maxIter:
         userInput = input("\n>>> ")
         if userInput.lower() == "exit":
