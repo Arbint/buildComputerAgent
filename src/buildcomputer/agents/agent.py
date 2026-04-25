@@ -70,7 +70,6 @@ class Agent:
     def ConfigureInput(self, **inputs):
         pass
 
-
     def AddSubAgent(self, newAgent):
         self.subAgents[newAgent.name] = newAgent
 
@@ -157,14 +156,20 @@ class Agent:
             print(f"----> Calling: {toolUseBlock.name}")
             print(f"args: {toolUseBlock.input}")
 
-            result = self.__CallTool(toolName=toolUseBlock.name, **toolUseBlock.input)
-            toolResults.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": toolUseBlock.id,
-                    "content": json.dumps(result)
-                }
-            )
+            with _tracer.start_as_current_span(f"tool.{toolUseBlock.name}") as span:
+                span.set_attribute("tool.name", toolUseBlock.name)
+                span.set_attribute("tool.input", json.dumps(toolUseBlock.input))
+
+                result = self.__CallTool(toolName=toolUseBlock.name, **toolUseBlock.input)
+                span.set_attribute("tool.output", json.dumps(result, default=str) if result else "")
+
+                toolResults.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": toolUseBlock.id,
+                        "content": json.dumps(result)
+                    }
+                )
 
         return toolResults
 
