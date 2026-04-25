@@ -1,5 +1,7 @@
 from buildcomputer.agents.computerBuilderAgent import ComputerBuilderAgent
+from buildcomputer.instrumentation.instrumentation import SetupTracing
 def DIYComputer():
+    SetupTracing()
     agent = ComputerBuilderAgent()
     maxIter = 10
     iter = 0

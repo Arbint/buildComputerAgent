@@ -1,6 +1,9 @@
 from anthropic import Anthropic
 import json
 from buildcomputer.utilities import GetAPIKey, GetGreyBG, GetReset
+from opentelemetry import trace
+
+_tracer = trace.get_tracer("buildcomputer.agent")
 
 class Agent:
     def __init__(self, name, description, properties, system, userInput="", maxIter=10):
@@ -9,60 +12,59 @@ class Agent:
         self.properties = properties
         self.system = system
         self.messages = []
+        self.model = "claude-sonnet-4-6"
+        self.maxTokens = 1024
         if userInput:
             self.messages.append({"role":"user", "content": userInput})
 
         self.maxIter = maxIter
         self.subAgents = {}
 
+        self.client = Anthropic(api_key=GetAPIKey())
+
 
     def ProcessNewUserInput(self, userInput):
-        self.messages.append({"role":"user", "content": userInput})
-        self.Run()
+        with _tracer.start_as_current_span(self.name) as span:
+            span.set_attribute("agent.name", self.name)
+            self.messages.append({"role":"user", "content": userInput})
+            self.Run()
 
 
     def Run(self):
-        client = Anthropic(api_key=GetAPIKey())
+        with _tracer.start_as_current_span(f"{self.name}.Run") as span:
+            iter = 0
+            response = None
+            while iter < self.maxIter:
+                iter += 1
 
-        iter = 0
-        response = None
-        while iter < self.maxIter:
-            iter += 1
+                print(f"\n------- Interation {iter} -------")
+                self.__PrintContextWindow()
 
-            print(f"\n------- Interation {iter} -------")
-            self.__PrintContextWindow()
+                response = self._SendRequestToAgent()
 
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1024,
-                system = self.system,
-                messages = self.messages,
-                tools = self.GetTools()
-            )
+                toolUseBlocks =[block for block in response.content if block.type=="tool_use"]
+                textBlocks = [block for block in response.content if block.type=="text"]
 
-            toolUseBlocks =[block for block in response.content if block.type=="tool_use"]
-            textBlocks = [block for block in response.content if block.type=="text"]
+                for textBlock in textBlocks: 
+                    print(f"assstant: {textBlock.text}")
 
-            for textBlock in textBlocks: 
-                print(f"assstant: {textBlock.text}")
+                self.messages.append({"role": "assistant", "content": response.content})
 
-            self.messages.append({"role": "assistant", "content": response.content})
+                if toolUseBlocks:
+                    toolResults = self.__ProcessToolUse(toolUseBlocks)
+                    self.messages.append({"role":"user", "content": toolResults})
+                else:
+                    break
 
-            if toolUseBlocks:
-                toolResults = self.__ProcessToolUse(toolUseBlocks)
-                self.messages.append({"role":"user", "content": toolResults})
-            else:
-                break
+            finalResponseTextBlocks = [block for block in response.content if block.type=="text"]
+            finalResponse = ""
+            for textBlock in finalResponseTextBlocks:
+                finalResponse += textBlock.text
 
-        finalResponseTextBlocks = [block for block in response.content if block.type=="text"]
-        finalResponse = ""
-        for textBlock in finalResponseTextBlocks:
-            finalResponse += textBlock.text
-
-        if finalResponse == "":
-            finalResponse = "no response"
-
-        return finalResponse
+            if finalResponse == "":
+                finalResponse = "no response"
+            span.set_attribute("agent.interators", iter)
+            return finalResponse
             
 
     def ConfigureInput(self, **inputs):
@@ -165,3 +167,29 @@ class Agent:
             )
 
         return toolResults
+
+
+    def _SendRequestToAgent(self):
+        with _tracer.start_as_current_span("claude", kind=trace.SpanKind.CLIENT) as span:
+            span.set_attribute("gen_ai.system", "anthropic")
+            span.set_attribute("gen_ai.request.model", self.model)
+            span.set_attribute("gen_ai.request.max_tokens", self.maxTokens)
+
+            span.set_attribute("langfuse.input", json.dumps(self.messages, default=str))
+
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.maxTokens,
+                system = self.system,
+                messages = self.messages,
+                tools = self.GetTools()
+            )
+
+            span.set_attribute("gen_ai.usage.input_tokens", response.usage.input_tokens)
+            span.set_attribute("gen_ai.usage.output_tokens", response.usage.output_tokens)
+            span.set_attribute("gen_ai.response.model", response.model) 
+
+            completion = " ".join(block.text for block in response.content if block.type == "text")
+            span.set_attribute("langfuse.output", completion)
+
+            return response
