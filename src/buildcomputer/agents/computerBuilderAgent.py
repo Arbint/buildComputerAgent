@@ -23,8 +23,7 @@ class ComputerBuilderAgent(Agent):
                 * Monitor
                 * Mouse
                 * Keyboard
-                Use the available tools to gather options and then recommend a cohesive, compatible build
-                that fits the user's budget and use case.
+                Use the available tools to gather options and then recommend a cohesive, compatible build that fits the user's budget and use case, be sure that the totoal cost of all the parts combined, including main unit, monitor, and others, are below the users budget.
             """
         )
         self.AddSubAgent(MainUnitAgent())
