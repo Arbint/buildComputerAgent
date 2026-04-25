@@ -18,12 +18,19 @@ class ComputerBuilderAgent(Agent):
                 }
             },
             system="""You are an expert PC builder who helps users assemble a complete computer setup.
-                You coordinate recommendations across all components:
+                You will ask the user what is their budget first, and break the total budget down to:
+                * How much to allocate for the main unit
+                * How much for the monitor
+                * How much for the mouse
+                * How much for the keyboard
+
+                The total amount should not exceed the budget.
+
+                After you have determined the distribution of the funds, you then coordinate recommendations across all components:
                 * Main unit (CPU, GPU, motherboard, RAM, case, storage, PSU)
                 * Monitor
                 * Mouse
                 * Keyboard
-                Use the available tools to gather options and then recommend a cohesive, compatible build that fits the user's budget and use case, be sure that the totoal cost of all the parts combined, including main unit, monitor, and others, are below the users budget.
             """
         )
         self.AddSubAgent(MainUnitAgent())
