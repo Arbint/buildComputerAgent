@@ -14,6 +14,18 @@ uv run buildcomputer
 
 Requires the `CLAUDE_API_KEY` environment variable set to your Anthropic API key.
 
+### One-command launch scripts
+
+Platform-specific scripts handle Python 3.12+ and `uv` installation automatically, then launch the agent:
+
+| Platform | Script |
+|----------|--------|
+| Linux | `./launch.sh` |
+| macOS | `./launch_macos.sh` |
+| Windows | `launch.bat` |
+
+Each script will prompt for `CLAUDE_API_KEY` if it is not already set.
+
 ## Architecture
 
 ### Overview
@@ -48,12 +60,12 @@ The core abstraction all agents inherit from. Constructor parameters:
 
 **Tool-use loop — `Run()`**
 
-Each call to `Run()` creates a fresh `Anthropic` client and enters a loop:
+Each call to `Run()` enters a loop (wrapped in an OTel span):
 
 1. Prints the full context window to stdout (grey ANSI background) for debugging.
-2. Calls `client.messages.create` with the current message history and all tools.
+2. Calls `_SendRequestToAgent()`, which wraps `client.messages.create` in an OTel `claude` generation span that records model, token counts, and the prompt/completion text.
 3. Appends any text blocks to stdout.
-4. If the response contains `tool_use` blocks, dispatches each via `__CallTool()` and appends the results as a `tool_result` user message, then loops.
+4. If the response contains `tool_use` blocks, dispatches each via `__CallTool()` (each wrapped in its own `tool.*` span) and appends the results as a `tool_result` user message, then loops.
 5. If no tool calls are present, exits and returns the final text response.
 
 **Tool dispatch — `__CallTool()`**
@@ -124,6 +136,45 @@ Sub-agent of `ComputerBuilderAgent`. Exposes one tool:
 2. Sends an initial `"hi"` to start the conversation.
 3. Loops reading user input from stdin, passing each line to `agent.ProcessNewUserInput()`.
 4. Exits on `"exit"`.
+
+---
+
+### Observability — OpenTelemetry + Langfuse
+
+The agent is instrumented with [OpenTelemetry](https://opentelemetry.io/) and ships traces to [Langfuse](https://langfuse.com/) for LLM observability. Every user message produces one trace in Langfuse containing:
+
+- A root span per agent (`ProcessNewUserInput`)
+- A `Run` span covering all tool-use iterations for that agent
+- A `claude` generation span per API call, with model name, token counts, and full prompt/completion text
+- A `tool.*` child span per tool or sub-agent call
+
+```
+ComputerBuilderAgent                  ← trace root
+  ComputerBuilderAgent.Run
+    claude  [generation]              ← tokens, cost, prompt, completion
+    tool.GetAvailableMice
+    tool.MainUnitAgent                ← sub-agent call
+      MainUnitAgent.Run
+        claude  [generation]
+        tool.CPUAgent
+          CPUAgent.Run
+            claude  [generation]
+    tool.MonitorAgent
+      MonitorAgent.Run
+        claude  [generation]
+```
+
+#### Setup
+
+Set these environment variables before running the agent:
+
+```bash
+export LANGFUSE_PUBLIC_KEY="pk-lf-..."
+export LANGFUSE_SECRET_KEY="sk-lf-..."
+export LANGFUSE_HOST="https://cloud.langfuse.com"   # or http://localhost:3000 for self-hosted
+```
+
+Tracing is initialized once at startup in `app.py` via `SetupTracing()` in `src/buildcomputer/instrumentation/instrumentation.py`. The instrumentation uses `BatchSpanProcessor` so HTTP exports to Langfuse are non-blocking. See [`doc/instrumentation.md`](doc/instrumentation.md) for a full step-by-step walkthrough including self-hosted Langfuse setup.
 
 ---
 
